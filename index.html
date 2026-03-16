@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en"> 
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <link rel="shortcut icon" type="image/ico" href="assets/tile/ball_small.png">
+        <title>Bounce - Nokia Classic</title>
+        <style>
+            @font-face {
+                font-family: 'GameFont';
+                src: url('assets/fonts/YanoneKaffeesatz-Bold.ttf');
+            }
+            * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+            body {
+                background: #0a0a0a;
+                background-image: 
+                    radial-gradient(ellipse at 20% 50%, rgba(255,60,0,0.08) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 20%, rgba(255,140,0,0.06) 0%, transparent 50%),
+                    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px);
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                overflow: hidden;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            #titleBar {
+                width: 100%;
+                max-width: 640px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 8px 12px;
+                gap: 10px;
+            }
+            #titleBar span {
+                color: #ff4400;
+                font-family: 'GameFont', monospace;
+                font-size: 18px;
+                letter-spacing: 4px;
+                text-transform: uppercase;
+                text-shadow: 0 0 12px rgba(255,68,0,0.7);
+            }
+            .dot {
+                width: 8px; height: 8px;
+                border-radius: 50%;
+                background: #ff4400;
+                box-shadow: 0 0 8px #ff4400;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+            @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.7)} }
+
+            #gameWrapper {
+                position: relative;
+                width: 100%;
+                max-width: 640px;
+                display: flex;
+                justify-content: flex-start;
+                overflow: hidden;
+            }
+
+            #gameArea {
+                position: relative;
+                width: 640px;
+                height: 360px;
+                transform-origin: top left;
+                border: 2px solid rgba(255,68,0,0.35);
+                box-shadow: 0 0 25px rgba(255,68,0,0.25), 0 0 60px rgba(255,68,0,0.1), inset 0 0 30px rgba(0,0,0,0.5);
+                background: #000;
+                flex-shrink: 0;
+            }
+
+            #gameArea::after {
+                content: '';
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 4px);
+                pointer-events: none;
+                z-index: 100;
+            }
+
+            canvas { margin:0; padding:0; display:block; font-family:'GameFont'; }
+
+            .game-finished { width:480px; height:270px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+            .level-menu { width:640px; height:360px; position:absolute; top:0; left:0; }
+            .gbar { width:630px; height:40px; position:absolute; top:5px; left:5px; }
+
+            /* TOUCH CONTROLS */
+            #touchControls {
+                width: 100%;
+                max-width: 640px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 20px 8px;
+                margin-top: 4px;
+            }
+            .ctrl-side { display:flex; gap:12px; }
+            .btn-wrap { display:flex; flex-direction:column; align-items:center; gap:5px; }
+            .ctrl-btn {
+                width: 70px; height: 70px;
+                border-radius: 50%;
+                border: 2.5px solid rgba(255,68,0,0.55);
+                background: rgba(255,68,0,0.08);
+                display: flex; align-items: center; justify-content: center;
+                cursor: pointer;
+                position: relative;
+                box-shadow: 0 0 12px rgba(255,68,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+                transition: all 0.07s ease;
+            }
+            .ctrl-btn::before {
+                content:'';position:absolute;inset:0;border-radius:50%;
+                background:radial-gradient(circle at 35% 35%, rgba(255,255,255,0.1), transparent 60%);
+            }
+            .ctrl-btn.pressed, .ctrl-btn:active {
+                background: rgba(255,68,0,0.3);
+                border-color: #ff4400;
+                transform: scale(0.9);
+                box-shadow: 0 0 22px rgba(255,68,0,0.55), inset 0 2px 4px rgba(0,0,0,0.3);
+            }
+            .ctrl-btn svg { width:30px; height:30px; fill:rgba(255,68,0,0.9); filter:drop-shadow(0 0 4px rgba(255,68,0,0.5)); }
+            .btn-label { font-family:'GameFont',monospace; font-size:9px; letter-spacing:2px; color:rgba(255,68,0,0.45); text-transform:uppercase; }
+
+            #btnJump {
+                width: 80px; height: 80px;
+                border-color: rgba(255,160,0,0.65);
+                background: rgba(255,160,0,0.08);
+                box-shadow: 0 0 15px rgba(255,160,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+            }
+            #btnJump.pressed, #btnJump:active {
+                background: rgba(255,160,0,0.35);
+                border-color: #ffa000;
+                box-shadow: 0 0 28px rgba(255,160,0,0.6), inset 0 2px 4px rgba(0,0,0,0.3);
+            }
+            #btnJump svg { fill:rgba(255,160,0,0.95); filter:drop-shadow(0 0 5px rgba(255,160,0,0.6)); }
+            #jumpLabel { color:rgba(255,160,0,0.5) !important; }
+
+            #keyHint { color:rgba(255,255,255,0.15); font-size:10px; font-family:monospace; letter-spacing:1px; padding:4px 0 6px; text-align:center; }
+            #nokiaBrand { color:rgba(255,255,255,0.07); font-family:'GameFont',serif; font-size:10px; letter-spacing:5px; text-transform:uppercase; padding-bottom:8px; }
+        </style>
+    </head>
+    <body>
+
+        <div id="titleBar">
+            <div class="dot"></div>
+            <span>Bounce</span>
+            <div class="dot"></div>
+        </div>
+
+        <div id="gameWrapper">
+            <div id="gameArea"></div>
+        </div>
+
+        <div id="touchControls">
+            <div class="ctrl-side">
+                <div class="btn-wrap">
+                    <div class="ctrl-btn" id="btnLeft">
+                        <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
+                    </div>
+                    <span class="btn-label">LEFT</span>
+                </div>
+                <div class="btn-wrap">
+                    <div class="ctrl-btn" id="btnRight">
+                        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+                    </div>
+                    <span class="btn-label">RIGHT</span>
+                </div>
+            </div>
+
+            <div class="btn-wrap">
+                <div class="ctrl-btn" id="btnJump">
+                    <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+                </div>
+                <span class="btn-label" id="jumpLabel">JUMP</span>
+            </div>
+        </div>
+
+        <div id="keyHint">← → ↑ ARROW KEYS  |  SPACE = RESTART</div>
+        <div id="nokiaBrand">Nokia Classic</div>
+
+        <script>
+        // MOBILE SCALING
+        function scaleGame() {
+            const gameArea = document.getElementById('gameArea');
+            const gameWrapper = document.getElementById('gameWrapper');
+            const GAME_W = 640, GAME_H = 360;
+            const availW = Math.min(window.innerWidth, 640);
+            const scale = availW / GAME_W;
+            gameArea.style.transform = 'scale(' + scale + ')';
+            gameArea.style.transformOrigin = 'top left';
+            gameWrapper.style.height = (GAME_H * scale) + 'px';
+        }
+        scaleGame();
+        window.addEventListener('resize', scaleGame);
+        window.addEventListener('orientationchange', function(){ setTimeout(scaleGame, 300); });
+
+        // TOUCH BUTTONS
+        function setupBtn(id, key) {
+            var btn = document.getElementById(id);
+            function start(e) {
+                e.preventDefault();
+                btn.classList.add('pressed');
+                if (window.__touchInput) window.__touchInput.setKey(key, true);
+            }
+            function end(e) {
+                e.preventDefault();
+                btn.classList.remove('pressed');
+                if (window.__touchInput) window.__touchInput.setKey(key, false);
+            }
+            btn.addEventListener('touchstart', start, {passive:false});
+            btn.addEventListener('touchend', end, {passive:false});
+            btn.addEventListener('touchcancel', end, {passive:false});
+            btn.addEventListener('mousedown', start);
+            btn.addEventListener('mouseup', end);
+            btn.addEventListener('mouseleave', end);
+        }
+        setupBtn('btnLeft', 'left');
+        setupBtn('btnRight', 'right');
+        setupBtn('btnJump', 'up');
+
+        // Prevent scroll on touch controls area
+        document.getElementById('touchControls').addEventListener('touchstart', function(e){ e.preventDefault(); }, {passive:false});
+        </script>
+
+        <script src="js/tile.js"></script>
+        <script src="js/sprite.js"></script>
+        <script src="js/input.js"></script>
+        <script src="js/entity.js"></script>
+        <script src="js/enemy.js"></script>
+        <script src="js/player.js"></script>
+        <script src="js/canvas.js"></script>
+        <script src="js/map.js"></script>
+        <script src="js/level.js"></script>
+        <script src="js/game.js"></script>
+        <script src="js/main.js"></script>
+    </body>
+</html>
